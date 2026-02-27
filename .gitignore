@@ -1,0 +1,51 @@
+yolo11x.pt
+# --- Python Environment ---
+venv/
+.venv/
+env/
+bin/
+lib/
+develop-eggs/
+dist/
+eggs/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Computer Vision & AI ---
+# Ignore weights/models (these should be downloaded or stored in a volume)
+*.pt
+*.pth
+*.onnx
+*.weights
+# Specifically for your project:
+yolo11x.pt
+
+# --- Databases & Local Storage ---
+*.db
+*.sqlite3
+# For SQLAlchemy/SQLite in your project
+bottle_vision.db
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+# Usually you want to keep the Dockerfile, but ignore the data it generates
+.docker-logs/
+

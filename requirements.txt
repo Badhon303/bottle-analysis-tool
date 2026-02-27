@@ -1,0 +1,19 @@
+# Web & API
+fastapi
+uvicorn
+python-multipart
+pydantic-settings
+python-dotenv
+
+# Database
+sqlalchemy
+
+# Computer Vision & AI
+opencv-python-headless
+numpy
+pillow
+torch
+torchvision
+ultralytics
+scikit-learn
+faiss-cpu
