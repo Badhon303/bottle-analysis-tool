@@ -7,6 +7,7 @@ python-dotenv
 
 # Database
 sqlalchemy
+psycopg2-binary
 
 # Computer Vision & AI
 opencv-python-headless

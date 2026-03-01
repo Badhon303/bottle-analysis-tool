@@ -49,7 +49,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "sqlite:///./bottle_vision.db"
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/bottle_vision"
     
     # Paths
     BASE_DIR: Path = Path(__file__).parent
