@@ -41,15 +41,83 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS for frontend - allow all origins
+# ============================================================================
+# Model Caching (Avoids reloading models on every request)
+# ============================================================================
+
+_model_cache = {}
+
+def get_cached_detector(model_path: str, confidence: float):
+    cache_key = f"detector_{model_path}"
+    if cache_key not in _model_cache:
+        from services.detector import BottleDetector
+        _model_cache[cache_key] = BottleDetector(model_path=model_path, confidence=confidence)
+    else:
+        # Update confidence if needed
+        _model_cache[cache_key].confidence = confidence
+    return _model_cache[cache_key]
+
+def get_cached_extractor(use_clip: bool, vit_model: str, clip_model: str):
+    cache_key = f"extractor_{use_clip}_{vit_model}_{clip_model}"
+    if cache_key not in _model_cache:
+        from services.feature_extractor import get_feature_extractor
+        _model_cache[cache_key] = get_feature_extractor(
+            use_clip=use_clip, 
+            vit_model=vit_model, 
+            clip_model=clip_model
+        )
+    return _model_cache[cache_key]
+
+
+# CORS for frontend
+origins = [
+    "http://localhost",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8066",
+    "https://analysis-ui.codemonks.dev",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
+
+# ============================================================================
+# Global Exception Handlers (Ensures CORS headers on errors)
+# ============================================================================
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("Origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "message": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("Origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
 
 # Serve cropped images
 app.mount("/crops", StaticFiles(directory="crops"), name="crops")
@@ -593,12 +661,12 @@ async def analyze_image(
     if img is None:
         raise HTTPException(status_code=400, detail="Cannot read image file")
     
-    # Initialize components
-    detector = BottleDetector(
+    # Use cached components
+    detector = get_cached_detector(
         model_path=settings.DETECTION_MODEL,
         confidence=settings.YOLO_CONFIDENCE
     )
-    extractor = get_feature_extractor(
+    extractor = get_cached_extractor(
         use_clip=use_clip or settings.USE_CLIP,
         vit_model=settings.VIT_MODEL,
         clip_model=settings.CLIP_MODEL
@@ -611,6 +679,7 @@ async def analyze_image(
         high_threshold=settings.HIGH_CONFIDENCE_THRESHOLD,
         medium_threshold=settings.MEDIUM_CONFIDENCE_THRESHOLD
     )
+
     matcher.load_labels(db)
     
     # Step 1: Detect bottles
@@ -775,12 +844,12 @@ async def analyze_image_batch(
     # Generate unique batch ID
     batch_id = f"img-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
     
-    # Initialize components (shared across all images for efficiency)
-    detector = BottleDetector(
+    # Use cached components
+    detector = get_cached_detector(
         model_path=settings.DETECTION_MODEL,
         confidence=settings.YOLO_CONFIDENCE
     )
-    extractor = get_feature_extractor(
+    extractor = get_cached_extractor(
         use_clip=use_clip or settings.USE_CLIP,
         vit_model=settings.VIT_MODEL,
         clip_model=settings.CLIP_MODEL
@@ -793,6 +862,7 @@ async def analyze_image_batch(
         high_threshold=settings.HIGH_CONFIDENCE_THRESHOLD,
         medium_threshold=settings.MEDIUM_CONFIDENCE_THRESHOLD
     )
+
     matcher.load_labels(db)
     
     # Process all images
